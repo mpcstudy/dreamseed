@@ -1,0 +1,1 @@
+[project] name="ai_orchestrator"; version="0.0.1"; dependencies=["fastapi","uvicorn[standard]","pydantic"]

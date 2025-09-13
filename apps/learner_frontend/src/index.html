@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><div id="root"></div>
+<script type="module">
+const base = location.origin.replace(':5178', ':8000');
+fetch(`${base}/career/paths?interest=ai&locale=ko`).then(r=>r.json()).then(list=>{
+  document.getElementById('root').innerHTML =
+    '<h1>추천 진로</h1>' + list.map(p=>`<div>${p.title}</div>`).join('');
+}).catch(()=>{ document.getElementById('root').textContent='API 연결 대기'; });
+</script>

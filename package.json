@@ -1,1 +1,3 @@
-{ 
+{ "name":"dreamseed","private":true,"workspaces":["apps/*","packages/*"],
+  "devDependencies":{"turbo":"^2.0.0","typescript":"^5.4.0"},
+  "scripts":{"dev":"turbo run dev --parallel"} }

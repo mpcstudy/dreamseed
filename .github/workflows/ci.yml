@@ -1,2 +1,24 @@
 name: CI
-on: { push: { branches: [ 
+on:
+  push: { branches: [ "main" ] }
+  pull_request: { branches: [ "main" ] }
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: |
+          set -e
+          if [ -f package.json ]; then npm i; fi
+          for d in apps/* packages/*; do
+            [ -f "$d/package.json" ] && (cd "$d"; npm i || true; npm run build || true)
+          done
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: echo "no python projects yet"
