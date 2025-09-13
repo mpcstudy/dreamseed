@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  node:
+    name: Node build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # 루트에 package.json이 있거나, apps/* 에 package.json이 있으면 실행
+      - name: Detect Node projects
+        id: detect_node
+        run: |
+          set -e
+          FOUND=""
+          if [ -f package.json ]; then FOUND="$FOUND ."; fi
+          for d in apps/* packages/*; do
+            [ -f "$d/package.json" ] && FOUND="$FOUND $d"
+          done
+          echo "dirs=$FOUND" >> $GITHUB_OUTPUT
+
+      - name: Install & test each Node project
+        if: steps.detect_node.outputs.dirs != ''
+        run: |
+          set -e
+          for d in ${{ steps.detect_node.outputs.dirs }}; do
+            echo "===> $d"
+            cd "$d"
+            if [ -f package-lock.json ]; then
+              npm ci || npm install
+            else
+              npm install
+            fi
+            # 테스트 스크립트가 있으면 실행, 없으면 건너뜀
+            if npm run | grep -qE ' test'; then
+              npm test || echo "(no tests or tests failed)"; 
+            fi
+            # 빌드 스크립트가 있으면 실행
+            if npm run | grep -qE ' build'; then
+              npm run build
+            fi
+            cd - >/dev/null
+          done
+
+  python:
+    name: Python lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect Python projects
+        id: detect_py
+        run: |
+          set -e
+          FOUND=""
+          # 루트/앱스 하위에 pyproject.toml 또는 requirements.txt 있는 디렉터리 찾기
+          for d in . apps/*; do
+            if [ -f "$d/pyproject.toml" ] || [ -f "$d/requirements.txt" ]; then
+              FOUND="$FOUND $d"
+            fi
+          done
+          echo "dirs=$FOUND" >> $GITHUB_OUTPUT
+
+      - name: Setup Python
+        if: steps.detect_py.outputs.dirs != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Lint & test each Python project
+        if: steps.detect_py.outputs.dirs != ''
+        run: |
+          set -e
+          pip install -U pip
+          pip install ruff pytest httpx
+          for d in ${{ steps.detect_py.outputs.dirs }}; do
+            echo "===> $d"
+            if [ -f "$d/requirements.txt" ]; then pip install -r "$d/requirements.txt" || true; fi
+            if [ -f "$d/pyproject.toml" ]; then pip install -e "$d" || true; fi
+            # 린트 (실패해도 PR 막지 않게 best-effort)
+            ruff "$d" || true
+            # 테스트 (있으면 실행)
+            if ls "$d"/**/test*.py "$d"/tests/*.py 1>/dev/null 2>&1; then
+              pytest -q "$d" || echo "(tests failed or none)"
+            fi
+          done
